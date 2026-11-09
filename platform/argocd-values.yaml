@@ -1,0 +1,41 @@
+# Helm values for the argo-cd chart (used by the shell scripts and the console guide;
+# Terraform builds the same values inline in terraform/platform.tf).
+# __ARGOCD_HOST__, __CLUSTER__ and __CERT_ARN__ are filled by scripts/00-configure.sh.
+configs:
+  params:
+    server.insecure: true          # TLS ends at the ALB; ALB -> argocd-server is plain HTTP
+  cm:
+    timeout.reconciliation: 60s    # poll Git every 60 s (default 180 s)
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    hostname: __ARGOCD_HOST__
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: __CLUSTER__   # one ALB for the app, Argo CD and Grafana
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+      alb.ingress.kubernetes.io/healthcheck-path: /healthz
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+      alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      alb.ingress.kubernetes.io/certificate-arn: __CERT_ARN__
+  metrics:
+    enabled: true
+    serviceMonitor: { enabled: true }   # needs the Prometheus Operator CRDs (installed before Argo CD)
+
+# Prometheus scrapes Argo CD itself: sync status, app health, Git fetch errors.
+controller:
+  metrics:
+    enabled: true
+    serviceMonitor: { enabled: true }
+repoServer:
+  metrics:
+    enabled: true
+    serviceMonitor: { enabled: true }
+applicationSet:
+  metrics:
+    enabled: true
+    serviceMonitor: { enabled: true }

@@ -1,0 +1,36 @@
+# The 3-tier app. Argo CD renders gitops/bmi-app/overlays/prod with Kustomize
+# and keeps the cluster equal to Git: auto-sync, prune deleted objects,
+# self-heal manual kubectl edits.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bmi-app
+  namespace: argocd
+  finalizers:
+    # Deleting the app deletes its Ingress (ALB rule) and pods. The Postgres PVC is
+    # NOT pruned (StatefulSet volumes outlive the StatefulSet) - data survives.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: __GIT_REPO_URL__
+    targetRevision: main
+    path: gitops/bmi-app/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: bmi-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff: { duration: 10s, factor: 2, maxDuration: 3m }
+  ignoreDifferences:
+    # The HPA changes replicas; don't treat that as drift.
+    - group: apps
+      kind: Deployment
+      name: bmi-backend
+      jsonPointers: [/spec/replicas]

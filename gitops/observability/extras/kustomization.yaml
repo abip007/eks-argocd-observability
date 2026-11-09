@@ -1,0 +1,20 @@
+# Our own observability objects, synced by the Argo CD app "observability-extras".
+#  - dashboards/*.json -> ConfigMaps labelled grafana_dashboard=1. The Grafana sidecar
+#    loads them into the folder named by the grafana_folder annotation.
+#  - bmi-alerts.yaml   -> PrometheusRule; Prometheus loads it (ruleSelectorNilUsesHelmValues: false).
+# New dashboard = export JSON from Grafana, save it in dashboards/, add it below, git push.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: observability
+resources:
+  - bmi-alerts.yaml
+configMapGenerator:
+  - name: dashboard-bmi-app
+    files:
+      - dashboards/bmi-app.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: BMI

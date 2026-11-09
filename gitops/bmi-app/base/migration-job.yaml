@@ -1,0 +1,45 @@
+# Argo CD Sync hook: re-created on every sync (BeforeHookCreation) and run in
+# wave 1, i.e. after Postgres (wave 0) is healthy and before the backend (wave 2).
+# The SQL files are idempotent, so running them on every sync is safe.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bmi-migrations
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:14
+          envFrom:
+            - secretRef: { name: postgres-secret }
+          command: ["sh", "-c", "until pg_isready -h bmi-postgres-svc -U \"$POSTGRES_USER\"; do sleep 3; done"]
+      containers:
+        - name: run-migrations
+          image: postgres:14
+          envFrom:
+            - secretRef: { name: postgres-secret }
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              for f in $(ls /migrations/*.sql | sort); do
+                echo "Running $f"
+                PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 \
+                  -h bmi-postgres-svc -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$f"
+              done
+              echo "All migrations completed"
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+      volumes:
+        - name: migrations
+          configMap:
+            name: postgres-migrations

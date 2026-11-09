@@ -1,0 +1,21 @@
+# Copy to terraform.tfvars and edit. Keep in sync with scripts/config.env,
+# because scripts/00-configure.sh writes the same values into gitops/.
+
+region       = "ap-south-1"
+aws_profile  = "abip007"
+cluster_name = "obs-eks"
+
+# Lock the API to your IP (curl https://checkip.amazonaws.com)
+api_public_access_cidrs = ["0.0.0.0/0"]
+
+node_instance_types = ["m7i-flex.large"]
+node_min_size       = 2
+node_desired_size   = 3
+node_max_size       = 5
+
+domain_name  = "bestclick.click"
+zone_id      = "Z0123456789ABCDEFGHIJ"   # aws route53 list-hosted-zones-by-name --dns-name bestclick.click
+app_host     = "obs-bmi.bestclick.click"
+argocd_host  = "obs-argocd.bestclick.click"
+grafana_host = "obs-grafana.bestclick.click"
+git_repo_url = "https://github.com/abip007/eks-argocd-observability.git"

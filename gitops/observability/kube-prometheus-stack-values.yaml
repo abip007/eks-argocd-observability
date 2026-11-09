@@ -1,0 +1,135 @@
+# Values for the kube-prometheus-stack chart (Argo CD app gitops/argocd/apps/kube-prometheus-stack.yaml).
+# __GRAFANA_HOST__, __CLUSTER__ and __CERT_ARN__ are filled by scripts/00-configure.sh.
+
+# The Prometheus Operator CRDs (ServiceMonitor, PrometheusRule, ...) are installed BEFORE
+# Argo CD by the prometheus-operator-crds chart, so Argo CD's own ServiceMonitors work.
+crds:
+  enabled: false
+
+# ---------- EKS-specific: the control plane is managed by AWS ----------
+# etcd, scheduler and controller-manager can't be scraped on EKS, and kube-proxy only
+# listens on 127.0.0.1. Without this, "TargetDown" alerts fire forever.
+kubeEtcd: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeProxy: { enabled: false }
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeProxy: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+# ---------- Prometheus ----------
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    retentionSize: 18GB             # stay below the 20 GiB volume
+    # Pick up ServiceMonitors / PodMonitors / PrometheusRules from EVERY namespace and
+    # release, not only the ones labelled for this Helm release (e.g. bmi-app, Argo CD, Loki).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 200m, memory: 1Gi }
+      limits: { memory: 2Gi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: [ReadWriteOnce]
+          resources: { requests: { storage: 20Gi } }
+
+# ---------- Alertmanager ----------
+# Receives alerts from Prometheus. Default route = no notification; add Slack/email in
+# alertmanager.config (see docs, "Send alerts somewhere").
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits: { memory: 128Mi }
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: [ReadWriteOnce]
+          resources: { requests: { storage: 2Gi } }
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 64Mi }
+
+# ---------- Grafana ----------
+grafana:
+  # Admin login comes from Secret 'grafana-admin' (keys admin-user / admin-password),
+  # created outside Git by 02-install-platform.sh, Terraform or the console guide.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+
+  grafana.ini:
+    server:
+      root_url: https://__GRAFANA_HOST__
+    analytics:
+      check_for_updates: false
+
+  # Dashboards and data sources are code (ConfigMaps + values), so no volume is needed.
+  # Users/preferences made in the UI are lost when the pod restarts.
+  persistence:
+    enabled: false
+
+  testFramework:
+    enabled: false               # no "helm test" Pod; Argo CD doesn't run Helm tests
+
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { memory: 384Mi }
+
+  ingress:
+    enabled: true
+    ingressClassName: alb
+    hosts: [__GRAFANA_HOST__]
+    path: /
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: __CLUSTER__    # same ALB as the app and Argo CD
+      alb.ingress.kubernetes.io/healthcheck-path: /api/health
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+      alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      alb.ingress.kubernetes.io/certificate-arn: __CERT_ARN__
+
+  # Load every ConfigMap labelled grafana_dashboard=1 from any namespace as a dashboard
+  # (gitops/observability/extras/ ships the BMI app dashboard this way).
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+
+  # Prometheus is added by the chart. Loki is added here.
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      uid: loki
+      access: proxy
+      url: http://loki.observability.svc.cluster.local:3100
+      jsonData:
+        maxLines: 1000

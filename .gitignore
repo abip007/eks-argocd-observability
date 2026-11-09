@@ -1,0 +1,16 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tf.plan
+crash.log
+terraform.tfvars
+.cli-ids.env
+# Local cluster/helm state
+.kubeconfig-*
+.helm/
+
+# App builds
+node_modules/
+dist/

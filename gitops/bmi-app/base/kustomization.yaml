@@ -1,0 +1,23 @@
+# Base manifests for the BMI Health Tracker. Environment values (image registry,
+# tags, hostname, certificate) live in ../overlays/prod - edit there, not here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: bmi-app
+labels:
+  - pairs: { app.kubernetes.io/part-of: bmi-health-tracker }
+resources:
+  - postgres.yaml
+  - migration-job.yaml
+  - backend.yaml
+  - frontend.yaml
+  - ingress.yaml
+  - servicemonitor.yaml        # Prometheus scrapes the backend's /metrics
+configMapGenerator:
+  # Built from the SQL files in migrations/. New migration = add the file
+  # there (keep the NNN_ prefix so they sort) and list it below.
+  - name: postgres-migrations
+    files:
+      - migrations/001_create_measurements.sql
+      - migrations/002_add_measurement_date.sql
+    options:
+      disableNameSuffixHash: true

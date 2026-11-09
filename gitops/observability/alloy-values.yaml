@@ -1,0 +1,83 @@
+# Values for the alloy chart (Argo CD app gitops/argocd/apps/alloy.yaml).
+# __CLUSTER__ is filled by scripts/00-configure.sh.
+#
+# One Alloy pod reads every container's log through the Kubernetes API (no hostPath
+# mounts) plus cluster events, and pushes them to Loki. That is plenty for a small
+# cluster. For big clusters, run it as a DaemonSet that tails /var/log/pods on each node.
+controller:
+  type: deployment
+  replicas: 1                          # must stay 1: two pods would send every line twice
+
+alloy:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+
+  # Alloy configuration language. Each block is a component; "forward_to" wires them up:
+  #   discovery.kubernetes -> discovery.relabel -> loki.source.kubernetes -> loki.write -> Loki
+  configMap:
+    content: |
+      // 1. Find every pod in the cluster.
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // 2. Turn Kubernetes metadata into Loki labels (keep labels few: they index the logs).
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
+        // app = the pod's "app" label, or app.kubernetes.io/name if it has one
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app"]
+          regex         = "(.+)"
+          target_label  = "app"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          regex         = "(.+)"
+          target_label  = "app"
+        }
+      }
+
+      // 3. Tail the logs of those containers through the Kubernetes API.
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // 4. Kubernetes events (scheduling, image pulls, OOMKilled, ...) as log lines too.
+      loki.source.kubernetes_events "events" {
+        job_name   = "kubernetes-events"
+        log_format = "logfmt"
+        forward_to = [loki.write.default.receiver]
+      }
+
+      // 5. Push everything to Loki. The cluster label tells clusters apart later.
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+        }
+        external_labels = {
+          cluster = "__CLUSTER__",
+        }
+      }
+
+# Let Prometheus scrape Alloy itself (lines read/sent, errors).
+serviceMonitor:
+  enabled: true

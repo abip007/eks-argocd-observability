@@ -1,0 +1,24 @@
+# App-of-apps. Apply this ONE file by hand (or Terraform applies it for you);
+# from then on Argo CD creates every Application found in gitops/argocd/apps/:
+#   bmi-app, kube-prometheus-stack, loki, alloy, observability-extras.
+# Add a new app = add a new Application YAML in apps/ and git push.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # deleting root also deletes its child apps
+spec:
+  project: default
+  source:
+    repoURL: __GIT_REPO_URL__
+    targetRevision: main
+    path: gitops/argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

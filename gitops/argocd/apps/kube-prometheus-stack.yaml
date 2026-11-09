@@ -1,0 +1,45 @@
+# Metrics + dashboards + alerts: Prometheus Operator, Prometheus, Alertmanager,
+# Grafana, node-exporter, kube-state-metrics.
+# Two sources: the Helm chart from its repo, and our values file from this Git repo
+# ($values points at the second source). Change values = edit the file + git push.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 93.1.1                 # pin; bump on purpose (see docs, "Upgrade a chart")
+      helm:
+        releaseName: kube-prometheus-stack
+        valueFiles:
+          - $values/gitops/observability/kube-prometheus-stack-values.yaml
+    - repoURL: __GIT_REPO_URL__
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true                 # some objects are too big for client-side apply
+    retry:
+      limit: 5
+      backoff: { duration: 10s, factor: 2, maxDuration: 3m }
+  ignoreDifferences:
+    # The operator's admission webhook gets its CA bundle patched in at runtime.
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions: ['.webhooks[]?.clientConfig.caBundle']
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions: ['.webhooks[]?.clientConfig.caBundle']

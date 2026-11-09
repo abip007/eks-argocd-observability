@@ -1,0 +1,17 @@
+# Tells Prometheus to scrape the backend's /metrics (prom-client) every 30 s.
+# Prometheus finds the targets through the Service's endpoints (label app=bmi-backend,
+# port "http"). The ServiceMonitor CRD comes from the prometheus-operator-crds chart.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: bmi-backend
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels: { app: bmi-backend }
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

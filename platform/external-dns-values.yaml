@@ -1,0 +1,19 @@
+# Helm values for the external-dns chart (shell scripts + console guide).
+# Creates Route 53 records for every Ingress host - no manual DNS step.
+# __DOMAIN__, __ZONE_ID__, __REGION__ and __CLUSTER__ are filled by scripts/00-configure.sh.
+provider:
+  name: aws
+env:
+  - name: AWS_DEFAULT_REGION
+    value: __REGION__
+domainFilters: [__DOMAIN__]
+# Only touch the zone the registrar delegates to. Without this, a second zone with the same
+# name gets the records and the real zone keeps pointing at an old, deleted ALB.
+extraArgs:
+  - --zone-id-filter=__ZONE_ID__
+policy: upsert-only          # never delete records it didn't create / safer default
+txtOwnerId: __CLUSTER__      # marks records as owned by this cluster
+sources: [ingress]
+serviceAccount:
+  create: true
+  name: external-dns         # must equal the Pod Identity association
