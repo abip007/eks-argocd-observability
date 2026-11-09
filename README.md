@@ -70,12 +70,19 @@ cd .. && bash scripts/03-release.sh             # first images -> Argo CD deploy
 terraform -chdir=terraform output grafana_admin_password_command
 ```
 
+`terraform destroy` first deletes the Argo CD apps and the app namespace
+(`terraform_data.app_teardown`), so the ALB and EBS volumes are gone before the VPC is deleted.
+
 ## Day-2: the release loop
 
 ```bash
 # change code in app/, then:
 bash scripts/03-release.sh
 ```
+The script builds both images with a unique tag, pushes them to ECR, rewrites the two `newTag:`
+lines in [gitops/bmi-app/overlays/prod/kustomization.yaml](gitops/bmi-app/overlays/prod/kustomization.yaml),
+commits and pushes. Argo CD syncs within about 60 seconds.
+
 Then watch the rollout in Grafana → **Dashboards → BMI → BMI app**: request rate, errors, latency,
 pod CPU/memory and the app's logs on one page. To roll back, `git revert` the release commit.
 
@@ -129,5 +136,3 @@ pod CPU/memory and the app's logs on one page. To roll back, `git revert` the re
 
 Costs: the EKS control plane, NAT gateway, ALB, three m7i-flex.large nodes and about 42 GiB of gp3
 volumes are billed by the hour. Destroy the stack when you're done.
-#   e k s - a r g o c d - o b s e r v a b i l i t y  
- 
