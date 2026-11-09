@@ -4,7 +4,7 @@ This guide builds the same platform as `terraform/` and `scripts/`, by clicking 
 Console: the EKS cluster, Argo CD, the app, **and the observability stack** (Prometheus, Grafana,
 Loki, Alloy). A few steps can't be done in the AWS Console at all (Helm installs, Kubernetes
 secrets). For those, this guide uses **AWS CloudShell**, a terminal inside the console, so you
-never leave the browser.
+never leave the browser. You can run the same commands from **your PC** instead (Step 8, Option B).
 
 > **Use one path only.** The console, the scripts and Terraform all create resources with the
 > same names (`obs-eks-*`). If you mix them in one account, the names collide.
@@ -216,7 +216,18 @@ the same image). Turn on scan on push (or *basic scanning* under **Private regis
 
 ---
 
-## Step 8: Open CloudShell and connect to the cluster
+## Step 8: Open a terminal and connect to the cluster
+
+Steps 9–12 and the clean-up need `kubectl` and `helm`. Run them from **one** of these:
+
+| Option | Where | Good for |
+| --- | --- | --- |
+| **A. AWS CloudShell** (recommended) | Browser, inside the console | Nothing to install, already signed in as the cluster admin, clock always correct |
+| **B. Your PC** | Git Bash on Windows (or any bash) | Keeping your files and history; you need Docker Desktop on the PC anyway for Step 13 |
+
+Pick one and use it for Steps 9–12. Where later steps say **"in your terminal"**, they mean the one you picked.
+
+### Option A: AWS CloudShell
 
 Click the **CloudShell** icon (`>_`) in the console header. It runs in the browser as your
 console identity, which is the cluster admin, and its clock is always correct (see
@@ -233,9 +244,51 @@ kubectl get nodes            # 3 nodes, STATUS Ready
 git clone https://github.com/abip007/eks-argocd-observability.git && cd eks-argocd-observability
 ```
 
+> CloudShell keeps only your home folder (1 GB) and deletes it after 120 days without use.
+> Sessions time out after about 20 minutes idle. Run `cd ~/eks-argocd-observability` again after reconnecting.
+
+### Option B: Your PC (Git Bash)
+
+**1. Install the tools** (PowerShell, once; then open a new Git Bash window):
+```powershell
+winget install Amazon.AWSCLI Kubernetes.kubectl Helm.Helm Git.Git
+```
+
+**2. Sign in as your IAM user** (never root keys). Use an access key from
+**IAM → Users → `abip007` → Security credentials → Create access key → CLI**:
+```bash
+aws configure --profile abip007          # region ap-south-1, output json
+export AWS_PROFILE=abip007 AWS_REGION=ap-south-1
+aws sts get-caller-identity              # Arn must be the user that created the cluster
+```
+If the ARN is a **different** identity than the console user that created the cluster, give it
+access first (Step 5.1), or `kubectl` returns `Unauthorized`.
+
+**3. Check your clock.** Helm signs the LB Controller's webhook certificate with your PC's clock.
+If it's more than a few seconds off, Step 9.2 fails with `x509: certificate ... not yet valid`:
+```bash
+aws_date=$(curl -sI https://sts.ap-south-1.amazonaws.com | tr -d '\r' | awk -F': ' 'tolower($1)=="date"{print $2}')
+echo "skew: $(( $(date -u +%s) - $(date -u -d "$aws_date" +%s) ))s"     # should be between -5 and 5
+```
+If it isn't, fix it in **admin PowerShell**: `Start-Service w32time; w32tm /resync /force`.
+
+**4. Connect and get the repo:**
+```bash
+aws eks update-kubeconfig --name obs-eks --region ap-south-1
+kubectl get nodes            # 3 nodes, STATUS Ready
+
+cd /c/DevOps                 # or wherever you keep projects
+git clone https://github.com/abip007/eks-argocd-observability.git && cd eks-argocd-observability
+# already cloned in Step 0? just: cd eks-argocd-observability && git pull
+```
+
+> **Windows Helm cache:** if `helm` later says `no cached repo found`, delete
+> `%LOCALAPPDATA%\Temp\helm` and `%APPDATA%\helm\repositories.yaml`, or use a private cache:
+> `export HELM_CACHE_HOME=$PWD/.helm/cache HELM_CONFIG_HOME=$PWD/.helm/config HELM_DATA_HOME=$PWD/.helm/data`.
+
 ---
 
-## Step 9: Install the platform (in CloudShell)
+## Step 9: Install the platform (in your terminal)
 
 These are the same commands `scripts/02-install-platform.sh` runs.
 
@@ -283,11 +336,11 @@ git add -A && git commit -m "Configure for obs-eks" && git push
 
 (`eksctl/cluster.yaml` has placeholders too, but the console path doesn't use it.)
 
-Back in CloudShell, pull the change: `git pull`. Check nothing is left: `grep -rn '__[A-Z_]*__' gitops platform` prints nothing.
+Back in your terminal, pull the change: `git pull`. Check nothing is left: `grep -rn '__[A-Z_]*__' gitops platform` prints nothing.
 
 ---
 
-## Step 11: ExternalDNS, Prometheus Operator CRDs, Argo CD (in CloudShell)
+## Step 11: ExternalDNS, Prometheus Operator CRDs, Argo CD (in your terminal)
 
 ```bash
 helm upgrade --install external-dns external-dns \
@@ -315,7 +368,7 @@ Check the results in the console:
 
 ---
 
-## Step 12: Secrets (in CloudShell, never in Git)
+## Step 12: Secrets (in your terminal, never in Git)
 
 ```bash
 # App database
@@ -401,7 +454,7 @@ The first sync of all five takes about 3–5 minutes.
 - Open **https://obs-bmi.bestclick.click**, add a measurement, and refresh. The data is stored in Postgres.
 - **EC2 → Volumes**: 4 gp3 encrypted volumes are *in-use*: Postgres 10 GiB, Prometheus 20 GiB, Loki 10 GiB, Alertmanager 2 GiB
 - **EC2 → Load Balancers → `k8s-obseks-…` → Listeners → HTTPS:443 → rules**: one rule per host (`obs-bmi`, `obs-argocd`, `obs-grafana`)
-- CloudShell: `kubectl -n bmi-app get pods,hpa,ingress,pvc` and `kubectl -n observability get pods,pvc,ingress`
+- Your terminal: `kubectl -n bmi-app get pods,hpa,ingress,pvc` and `kubectl -n observability get pods,pvc,ingress`
 
 ---
 
@@ -455,7 +508,7 @@ Or use **Drilldown → Logs** to browse logs by label without writing queries.
 **Try it: make an alert fire.**
 
 1. Argo CD → `bmi-app` → **Details → Sync policy → Disable auto-sync**. Otherwise Self Heal undoes the next step.
-2. CloudShell:
+2. In your terminal (CloudShell or PC):
    ```bash
    kubectl -n bmi-app delete hpa bmi-backend                  # the HPA would scale it back up
    kubectl -n bmi-app scale deploy bmi-backend --replicas=0
@@ -509,7 +562,7 @@ A manual `kubectl edit` is undone automatically by **Self Heal**, because Git al
 ## Clean up (in this order, or the VPC won't delete)
 
 1. **Argo CD UI** → `root` → **DELETE** (cascade, foreground). This removes all 5 child apps, their Ingresses and pods.
-2. CloudShell:
+2. In your terminal (CloudShell or PC):
    ```bash
    kubectl delete namespace bmi-app observability       # frees the 4 EBS volumes (PVCs aren't pruned by Argo CD)
    helm -n argocd uninstall argocd                     # removes the Argo CD Ingress, which removes the ALB
