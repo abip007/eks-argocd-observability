@@ -9,10 +9,10 @@ resources:
 images:
   - name: bmi-backend
     newName: 014882039467.dkr.ecr.ap-south-1.amazonaws.com/obs-eks/bmi-backend
-    newTag: 4a74234-20261118112727
+    newTag: 57ef6d2-20261118113659
   - name: bmi-frontend
     newName: 014882039467.dkr.ecr.ap-south-1.amazonaws.com/obs-eks/bmi-frontend
-    newTag: 4a74234-20261118112727
+    newTag: 57ef6d2-20261118113659
 
 patches:
   - target: { kind: ConfigMap, name: backend-config }
