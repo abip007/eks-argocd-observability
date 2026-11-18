@@ -255,5 +255,19 @@ resource "terraform_data" "app_teardown" {
     ])
   }
 
-  depends_on = [helm_release.argocd_root_app, kubernetes_namespace_v1.app, kubernetes_secret_v1.grafana_admin]
+  # The network entries matter on destroy: Terraform must not delete the NAT gateway,
+  # routes or IGW until this teardown finishes. Without internet the nodes (private
+  # subnets) can't reach the ELB API or GitHub, so the LB Controller can't delete the
+  # ALB, the apps hang on their finalizers, and subnets/IGW fail with DependencyViolation.
+  depends_on = [
+    helm_release.argocd_root_app,
+    kubernetes_namespace_v1.app,
+    kubernetes_secret_v1.grafana_admin,
+    aws_nat_gateway.this,
+    aws_route.private_nat,
+    aws_route_table_association.private,
+    aws_route.public_internet,
+    aws_route_table_association.public,
+    aws_internet_gateway.this,
+  ]
 }
