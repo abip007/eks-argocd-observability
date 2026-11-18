@@ -1,5 +1,5 @@
 # Values for the kube-prometheus-stack chart (Argo CD app gitops/argocd/apps/kube-prometheus-stack.yaml).
-# __GRAFANA_HOST__, __CLUSTER__ and __CERT_ARN__ are filled by scripts/00-configure.sh.
+# obs-grafana.bestclick.click, obs-eks and arn:aws:acm:ap-south-1:014882039467:certificate/056cd22c-8739-46ef-bbb6-a192dd6e696b are filled by scripts/00-configure.sh.
 
 # The Prometheus Operator CRDs (ServiceMonitor, PrometheusRule, ...) are installed BEFORE
 # Argo CD by the prometheus-operator-crds chart, so Argo CD's own ServiceMonitors work.
@@ -83,7 +83,7 @@ grafana:
 
   grafana.ini:
     server:
-      root_url: https://__GRAFANA_HOST__
+      root_url: https://obs-grafana.bestclick.click
     analytics:
       check_for_updates: false
 
@@ -102,17 +102,17 @@ grafana:
   ingress:
     enabled: true
     ingressClassName: alb
-    hosts: [__GRAFANA_HOST__]
+    hosts: [obs-grafana.bestclick.click]
     path: /
     annotations:
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
-      alb.ingress.kubernetes.io/group.name: __CLUSTER__    # same ALB as the app and Argo CD
+      alb.ingress.kubernetes.io/group.name: obs-eks    # same ALB as the app and Argo CD
       alb.ingress.kubernetes.io/healthcheck-path: /api/health
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
       alb.ingress.kubernetes.io/ssl-redirect: '443'
       alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
-      alb.ingress.kubernetes.io/certificate-arn: __CERT_ARN__
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:014882039467:certificate/056cd22c-8739-46ef-bbb6-a192dd6e696b
 
   # Load every ConfigMap labelled grafana_dashboard=1 from any namespace as a dashboard
   # (gitops/observability/extras/ ships the BMI app dashboard this way).

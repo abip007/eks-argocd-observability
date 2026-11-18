@@ -8,10 +8,10 @@ resources:
 
 images:
   - name: bmi-backend
-    newName: __ACCOUNT_ID__.dkr.ecr.__REGION__.amazonaws.com/__CLUSTER__/bmi-backend
+    newName: 014882039467.dkr.ecr.ap-south-1.amazonaws.com/obs-eks/bmi-backend
     newTag: initial
   - name: bmi-frontend
-    newName: __ACCOUNT_ID__.dkr.ecr.__REGION__.amazonaws.com/__CLUSTER__/bmi-frontend
+    newName: 014882039467.dkr.ecr.ap-south-1.amazonaws.com/obs-eks/bmi-frontend
     newTag: initial
 
 patches:
@@ -19,15 +19,15 @@ patches:
     patch: |
       - op: replace
         path: /data/FRONTEND_URL
-        value: https://__APP_HOST__
+        value: https://obs-bmi.bestclick.click
   - target: { kind: Ingress, name: bmi }
     patch: |
       - op: replace
         path: /spec/rules/0/host
-        value: __APP_HOST__
+        value: obs-bmi.bestclick.click
       - op: replace
         path: /metadata/annotations/alb.ingress.kubernetes.io~1certificate-arn
-        value: __CERT_ARN__
+        value: arn:aws:acm:ap-south-1:014882039467:certificate/056cd22c-8739-46ef-bbb6-a192dd6e696b
       - op: replace
         path: /metadata/annotations/alb.ingress.kubernetes.io~1group.name
-        value: __CLUSTER__
+        value: obs-eks

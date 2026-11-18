@@ -13,7 +13,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: __GIT_REPO_URL__
+    repoURL: https://github.com/abip007/eks-argocd-observability.git
     targetRevision: main
     path: gitops/bmi-app/overlays/prod
   destination:

@@ -7,15 +7,15 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: __CLUSTER__
-  region: __REGION__
-  version: "__K8S_VERSION__"
+  name: obs-eks
+  region: ap-south-1
+  version: "1.36"
   tags:
     managed-by: eksctl
     project: eks-argocd-observability
 
 vpc:
-  cidr: __VPC_CIDR__
+  cidr: 10.2.0.0/16
   nat:
     gateway: Single              # HighlyAvailable = one NAT per AZ (~3x cost)
   clusterEndpoints:
@@ -47,19 +47,19 @@ iam:
     - namespace: kube-system
       serviceAccountName: aws-load-balancer-controller
       permissionPolicyARNs:
-        - arn:aws:iam::__ACCOUNT_ID__:policy/__CLUSTER__-lbc
+        - arn:aws:iam::014882039467:policy/obs-eks-lbc
     - namespace: external-dns
       serviceAccountName: external-dns
       permissionPolicyARNs:
-        - arn:aws:iam::__ACCOUNT_ID__:policy/__CLUSTER__-external-dns
+        - arn:aws:iam::014882039467:policy/obs-eks-external-dns
 
 managedNodeGroups:
   - name: general
     amiFamily: AmazonLinux2023
-    instanceType: __NODE_TYPE__
-    minSize: __NODE_MIN__
-    desiredCapacity: __NODE_DESIRED__
-    maxSize: __NODE_MAX__
+    instanceType: m7i-flex.large
+    minSize: 2
+    desiredCapacity: 3
+    maxSize: 5
     volumeSize: 20
     privateNetworking: true      # nodes in private subnets, egress via NAT
     labels: { role: general }

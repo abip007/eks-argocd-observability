@@ -1,6 +1,6 @@
 # Helm values for the argo-cd chart (used by the shell scripts and the console guide;
 # Terraform builds the same values inline in terraform/platform.tf).
-# __ARGOCD_HOST__, __CLUSTER__ and __CERT_ARN__ are filled by scripts/00-configure.sh.
+# obs-argocd.bestclick.click, obs-eks and arn:aws:acm:ap-south-1:014882039467:certificate/056cd22c-8739-46ef-bbb6-a192dd6e696b are filled by scripts/00-configure.sh.
 configs:
   params:
     server.insecure: true          # TLS ends at the ALB; ALB -> argocd-server is plain HTTP
@@ -11,17 +11,17 @@ server:
   ingress:
     enabled: true
     ingressClassName: alb
-    hostname: __ARGOCD_HOST__
+    hostname: obs-argocd.bestclick.click
     annotations:
       alb.ingress.kubernetes.io/scheme: internet-facing
       alb.ingress.kubernetes.io/target-type: ip
-      alb.ingress.kubernetes.io/group.name: __CLUSTER__   # one ALB for the app, Argo CD and Grafana
+      alb.ingress.kubernetes.io/group.name: obs-eks   # one ALB for the app, Argo CD and Grafana
       alb.ingress.kubernetes.io/backend-protocol: HTTP
       alb.ingress.kubernetes.io/healthcheck-path: /healthz
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
       alb.ingress.kubernetes.io/ssl-redirect: '443'
       alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
-      alb.ingress.kubernetes.io/certificate-arn: __CERT_ARN__
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:014882039467:certificate/056cd22c-8739-46ef-bbb6-a192dd6e696b
   metrics:
     enabled: true
     serviceMonitor: { enabled: true }   # needs the Prometheus Operator CRDs (installed before Argo CD)

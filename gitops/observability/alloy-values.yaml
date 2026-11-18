@@ -1,5 +1,5 @@
 # Values for the alloy chart (Argo CD app gitops/argocd/apps/alloy.yaml).
-# __CLUSTER__ is filled by scripts/00-configure.sh.
+# obs-eks is filled by scripts/00-configure.sh.
 #
 # One Alloy pod reads every container's log through the Kubernetes API (no hostPath
 # mounts) plus cluster events, and pushes them to Loki. That is plenty for a small
@@ -74,7 +74,7 @@ alloy:
           url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
         }
         external_labels = {
-          cluster = "__CLUSTER__",
+          cluster = "obs-eks",
         }
       }
 

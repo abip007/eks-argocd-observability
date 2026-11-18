@@ -17,7 +17,7 @@ spec:
         releaseName: loki
         valueFiles:
           - $values/gitops/observability/loki-values.yaml
-    - repoURL: __GIT_REPO_URL__
+    - repoURL: https://github.com/abip007/eks-argocd-observability.git
       targetRevision: main
       ref: values
   destination:
