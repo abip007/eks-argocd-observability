@@ -2,7 +2,7 @@
 # because scripts/00-configure.sh writes the same values into gitops/.
 
 region       = "ap-south-1"
-aws_profile  = "abip007"
+aws_profile  = "abip007home"
 cluster_name = "obs-eks"
 
 # Lock the API to your IP (curl https://checkip.amazonaws.com)

@@ -61,11 +61,21 @@ bash scripts/99-destroy.sh            # tear everything down in the right order
 
 ### Terraform path
 
+> Do [Common first steps](#common-first-steps-all-paths) 1-4 first. Terraform does **not** fill the
+> placeholders in `gitops/` - it only sets the Git URL on the root app. If you skip `00-configure.sh` +
+> `git push`, every child app in Argo CD shows `Unknown` (`repository not found`), no app ingress is
+> created, and `obs-bmi.<domain>` never resolves. `03-release.sh` also stops with "run scripts/00-configure.sh first".
+
 ```bash
+# from the repo root, once:
+bash scripts/00-configure.sh
+git add -A && git commit -m "configure" && git push
+
 cd terraform
 cp terraform.tfvars.example terraform.tfvars    # keep values equal to scripts/config.env; set zone_id
 terraform init
 terraform plan -out tf.plan && terraform apply tf.plan   # ~25 min, needs aws + kubectl on PATH
+aws eks update-kubeconfig --name obs-eks --region ap-south-1   # point kubectl at the new cluster
 cd .. && bash scripts/03-release.sh             # first images -> Argo CD deploys the app
 terraform -chdir=terraform output grafana_admin_password_command
 ```

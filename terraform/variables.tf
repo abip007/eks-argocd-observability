@@ -7,7 +7,7 @@ variable "region" {
 variable "aws_profile" {
   description = "AWS CLI profile for Terraform and kubectl/helm auth. null = default credential chain."
   type        = string
-  default     = "abip007"
+  default     = "abip007home"
 }
 
 variable "cluster_name" {
